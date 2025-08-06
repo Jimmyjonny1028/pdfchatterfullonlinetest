@@ -12,7 +12,7 @@ import re
 # --- Web server imports ---
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pantic import BaseModel
+from pydantic import BaseModel
 import uvicorn
 # --- Import to serve the HTML file ---
 from fastapi.responses import FileResponse
@@ -27,20 +27,18 @@ genai.configure(api_key=GOOGLE_API_KEY)
 print("Gemini API configured successfully.")
 
 # --- 2. MODEL INITIALIZATION ---
-print("Initializing Gemini models...")
-embedding_model_name = 'models/text-embedding-004'
+print("Initializing Gemini model...")
 llm_model_name = 'gemini-1.5-flash-latest' 
 print(f"Using LLM: {llm_model_name}")
-
-embedding_model = genai.GenerativeModel(embedding_model_name)
 llm_model = genai.GenerativeModel(llm_model_name)
-print("Gemini models initialized.")
+print("Gemini model initialized.")
 
 
 # --- 3. FASTAPI APP SETUP ---
 app = FastAPI()
 
 # --- Global state (for simplicity) ---
+# This will hold the full text of the last uploaded PDF
 document_state = { "full_text": None, "filename": None }
 
 # Allow requests from any origin

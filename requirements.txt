@@ -6,3 +6,6 @@ python-dotenv
 PyMuPDF
 pytesseract
 Pillow
+numpy
+scikit-learn
+pydantic

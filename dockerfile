@@ -16,9 +16,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code into the container
 COPY . .
 
-# Expose the port the app runs on
-EXPOSE 8000
+# Copy the entrypoint script and make it executable
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# The command to run when the container launches.
-# This will be overridden by the Render Start Command for flexibility.
-CMD ["/usr/local/bin/python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Set the entrypoint
+ENTRYPOINT ["entrypoint.sh"]
+
+# The default command to run. Render's Start Command will override this.
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

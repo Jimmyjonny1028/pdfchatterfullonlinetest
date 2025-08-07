@@ -4,24 +4,29 @@ FROM python:3.12-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies, including Tesseract OCR
-RUN apt-get update && apt-get install -y tesseract-ocr && rm -rf /var/lib/apt/lists/*
+# --- TESSERACT INSTALLATION WITH DETAILED LOGS ---
+# Add echo statements to track progress in Render's build logs.
+RUN echo "--- STEP 1: Updating package lists ---" && \
+    apt-get update && \
+    echo "--- STEP 2: Installing Tesseract OCR ---" && \
+    apt-get install -y tesseract-ocr && \
+    echo "--- STEP 3: Verifying Tesseract installation ---" && \
+    tesseract --version && \
+    echo "--- STEP 4: Cleaning up package lists ---" && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy the requirements file into the container
 COPY requirements.txt .
 
 # Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN echo "--- STEP 5: Installing Python libraries ---" && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code into the container
 COPY . .
 
-# Copy the entrypoint script and make it executable
-COPY entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Expose the port the app runs on
+EXPOSE 8000
 
-# Set the entrypoint
-ENTRYPOINT ["entrypoint.sh"]
-
-# The default command to run. Render's Start Command will override this.
+# The command to run when the container launches.
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 from sklearn.metrics.pairwise import cosine_similarity
 import re
+import platform # NEW: To detect the operating system
 # --- Web server imports ---
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +17,16 @@ from pydantic import BaseModel
 import uvicorn
 # --- Import to serve the HTML file ---
 from fastapi.responses import FileResponse
+
+# --- 0. OCR CONFIGURATION (NOW SMARTER) ---
+# This block now checks the operating system and sets the correct path.
+if platform.system() == "Windows":
+    # For your local Windows machine
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+else:
+    # For the Linux server on Render (installed by the Dockerfile)
+    pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'
+
 
 # --- 1. API CONFIGURATION ---
 load_dotenv()
@@ -40,30 +51,23 @@ app = FastAPI()
 # --- Global state (for simplicity) ---
 document_state = { "full_text": None, "filename": None }
 
-# --- THIS IS THE CRITICAL FIX ---
-# Correctly configure CORS to allow requests from any origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
 
 class Question(BaseModel):
     text: str
 
 # --- 4. CORE LOGIC ---
-
 def process_pdf(pdf_content: bytes, filename: str):
-    """Extracts the full text from the PDF, using OCR if necessary."""
     global document_state
     print(f"Processing PDF: {filename}")
     try:
         doc = fitz.open(stream=pdf_content, filetype="pdf")
         full_text = "".join(page.get_text("text") for page in doc)
 
-        if len(full_text.strip()) < 100: # Heuristic for scanned PDFs
+        if len(full_text.strip()) < 100:
             print("Scanned PDF detected, starting OCR...")
             full_text = ""
             for page_num, page in enumerate(doc):
@@ -80,38 +84,26 @@ def process_pdf(pdf_content: bytes, filename: str):
         document_state["filename"] = filename
         print("PDF processed successfully.")
         return {"message": f"Successfully processed '{filename}'. Ready to answer questions."}
-
     except Exception as e:
         print(f"Error processing PDF: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # --- 5. API ENDPOINTS ---
-
 @app.get("/")
 async def read_root():
-    """Serves the main HTML file."""
     return FileResponse('index.html')
-
-# Add a simple health check endpoint for debugging
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
 
 @app.post("/upload/")
 async def upload_pdf(file: UploadFile = File(...)):
-    """Endpoint to upload and process a PDF."""
     content = await file.read()
     return process_pdf(content, file.filename)
 
 @app.post("/ask/")
 async def ask_question(question: Question):
-    """Endpoint to ask a question using the full document context."""
     if document_state["full_text"] is None:
         raise HTTPException(status_code=400, detail="No PDF has been processed yet.")
     try:
         print(f"Received question: {question.text}")
-        
         prompt = f"""
         You are a helpful and precise assistant. Your main goal is to answer the user's question accurately based on the provided document context.
 
@@ -144,7 +136,6 @@ async def ask_question(question: Question):
         
         print(f"Generated answer: {answer}")
         return {"answer": answer}
-
     except Exception as e:
         print(f"Error generating answer: {e}")
         raise HTTPException(status_code=500, detail=str(e))

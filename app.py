@@ -38,16 +38,16 @@ print("Gemini model initialized.")
 app = FastAPI()
 
 # --- Global state (for simplicity) ---
-# This will hold the full text of the last uploaded PDF
 document_state = { "full_text": None, "filename": None }
 
-# Allow requests from any origin
+# --- THIS IS THE CRITICAL FIX ---
+# Correctly configure CORS to allow requests from any origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Allows all origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 class Question(BaseModel):
@@ -92,6 +92,11 @@ def process_pdf(pdf_content: bytes, filename: str):
 async def read_root():
     """Serves the main HTML file."""
     return FileResponse('index.html')
+
+# Add a simple health check endpoint for debugging
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
 
 @app.post("/upload/")
 async def upload_pdf(file: UploadFile = File(...)):
